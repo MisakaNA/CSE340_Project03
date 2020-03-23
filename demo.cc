@@ -4,29 +4,57 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <string.h>
+#include <iostream>
 #include "compiler.h"
 #include "lexer.h"
 LexicalAnalyzer lexer;
 Token t;
+using namespace std;
+
+void parse_program();
+void parse_var_section();
+void parse_id_list();
+void parse_body();
+void parse_stmt_list();
+void parse_stmt();
+void parse_assign_stmt();
+void parse_expr();
+void parse_primary();
+void parse_op();
+void parse_output_stmt();
+void parse_input_stmt();
+void parse_while_stmt();
+void parse_if_stmt();
+void parse_condition();
+void parse_relop();
+void parse_switch_stmt();
+void parse_for_stmt();
+void parse_case_list();
+void parse_case();
+void parse_default_case();
+void parse_inputs();
+void parse_num_list();
 
 struct InstructionNode * parse_generate_intermediate_representation()
 {
+    parse_program();
+
     // Sample program for demonstration purpose only
     // Replace the following with a parser that reads the program from stdin &
     // creates appropriate data structures to be executed by execute_program()
     // This is the imaginary input for the following construction:
-    
+
     // a, b, c, d;
     // {
     //     input a;
     //     input b;
     //     c = 10;
-    // 
+    //
     //     IF c <> a
     //     {
     //         output b;
     //     }
-    // 
+    //
     //     IF c > 1
     //     {
     //         a = b + 900;
@@ -36,7 +64,7 @@ struct InstructionNode * parse_generate_intermediate_representation()
     //             output d;
     //         }
     //     }
-    // 
+    //
     //     d = 0;
     //     WHILE d < 4
     //     {
@@ -245,87 +273,73 @@ struct InstructionNode * parse_generate_intermediate_representation()
     return i1;
 }
 
-void parse_program();
-void parse_var_section();
-void parse_id_list();
-void parse_body();
-void parse_stmt_list();
-void parse_stmt();
-void parse_assign_stmt();
-void parse_expr();
-void parse_primary();
-void parse_op();
-void parse_output_stmt();
-void parse_input_stmt();
-void parse_while_stmt();
-void parse_if_stmt();
-void parse_condition();
-void parse_relop();
-void parse_switch_stmt();
-void parse_for_stmt();
-void parse_case_list();
-void parse_case();
-void parse_default_case();
-void parse_inputs();
-void parse_num_list();
-
 Token peek(){
-    t = lexer.GetToken();
+    Token t = lexer.GetToken();
     lexer.UngetToken(t);
     return t;
 }
 
+void syntax_error()
+{
+    cout << "SYNTAX ERROR !!!\n";
+    exit(1);
+}
+
+Token expect(TokenType expected_type)
+{
+    Token t = lexer.GetToken();
+    if (t.token_type != expected_type)
+        syntax_error();
+    return t;
+}
+
 void parse_program(){
+    //var_section
     t = peek();
-    if(t.token_type == ID){
+    if(t.token_type == ID) {
         parse_var_section();
-
-        t = peek();
-        if(t.token_type == LBRACE){
-            parse_body();
-
-            t = peek();
-            if(t.token_type == NUM){
-                parse_num_list();
-            }
-        }
+    } else {
+        syntax_error();
+    }
+    //body
+    t = peek();
+    if(t.token_type == LBRACE){
+        parse_body();
+    } else{
+        syntax_error();
+    }
+    //inputs
+    t = peek();
+    if(t.token_type == NUM){
+        parse_inputs();
+    } else{
+        syntax_error();
     }
 }
 
 void parse_var_section(){
-    t = peek();
-    if(t.token_type == ID){
-        parse_id_list();
-        t = lexer.GetToken();
-        if(t.token_type != SEMICOLON){
-            //syntax_error();
-        }
-    }
+    //id_list
+    parse_id_list();
+    expect(SEMICOLON);
 }
 
 void parse_id_list(){
+    expect(ID);
     t = lexer.GetToken();
-    if(t.token_type == ID){
-
-        t = lexer.GetToken();
-        if(t.token_type == COMMA){
-            parse_id_list();
-        }/*else{
-
-        }*/
+    if(t.token_type == COMMA){
+        parse_id_list();
+    } else{
+        lexer.UngetToken(t);
     }
 }
 
 void parse_body(){
-    t = lexer.GetToken();
-    if(t.token_type == LBRACE){
-        parse_stmt_list();
+    expect(LBRACE);
+    //stmt_list
+    parse_stmt_list();
 
-        t = lexer.GetToken();
-        if(t.token_type != RBRACE){
-            //syntax_error()
-        }
-    }
+    expect(RBRACE);
+
 }
 
 void parse_stmt_list(){
@@ -334,7 +348,7 @@ void parse_stmt_list(){
     t = peek();
     if(t.token_type == ID || t.token_type == WHILE || t.token_type == IF || t.token_type == SWITCH
        || t.token_type == FOR || t.token_type == OUTPUT || t.token_type == INPUT){
-        parse_stmt();
+        parse_stmt_list();
     }
 }
 
@@ -363,56 +377,240 @@ void parse_stmt(){
             parse_input_stmt();
             break;
         default:
-            //syntax_error
-            break;
+            syntax_error();
     }
 }
 
 void parse_assign_stmt(){
-    t = lexer.GetToken();
-    if(t.token_type == ID){
+    expect(ID);
+    expect(EQUAL);
 
-        t = lexer.GetToken();
-        if(t.token_type == EQUAL){
-            Token t1 = lexer.GetToken();
-            Token t2 = peek();
-            lexer.UngetToken(t1);
-            if(t1.token_type == ID || t1.token_type == NUM){
-                if(t2.token_type == PLUS || t2.token_type == MINUS || t2.token_type == MULT || t2.token_type == DIV){
-                    parse_expr();
-                }else{
-                    parse_primary();
-                }
-            }
-
-            t = lexer.GetToken();
-            if(t.token_type != SEMICOLON){
-                //syntax_error
-            }
+    Token t1 = lexer.GetToken();
+    Token t2 = peek();
+    lexer.UngetToken(t1);
+    if (t1.token_type == ID || t1.token_type == NUM) {
+        if (t2.token_type == PLUS || t2.token_type == MINUS || t2.token_type == MULT || t2.token_type == DIV) {
+            //expr
+            parse_expr();
+        } else {
+            //primary
+            parse_primary();
         }
+    } else{
+        syntax_error();
     }
+
+    expect(SEMICOLON);
 }
 
 void parse_expr(){
-    //t = peek();
-    //if(t.token_type == ID || t.token_type == NUM) {
-        parse_primary();
-    //}
-
-    //t = peek();
-    //if(t.token_type == PLUS || t.token_type == MINUS || t.token_type == MULT || t.token_type == DIV) {
-        parse_op();
-        parse_primary();
-    //}
+    parse_primary();
+    parse_op();
+    parse_primary(); //¿
 }
 
 void parse_primary(){
     t = lexer.GetToken();
-    //do some shit
-
+    if(t.token_type == ID || t.token_type == NUM){
+        //do some shit
+    } else{
+        syntax_error();
+    }
 }
 
 void parse_op(){
     t = lexer.GetToken();
-    //do some shit
+    if(t.token_type == PLUS || t.token_type == MINUS || t.token_type == MULT || t.token_type == DIV){
+        //do some shit
+    } else{
+        syntax_error();
+    }
+}
+
+void parse_output_stmt(){
+    expect(OUTPUT);
+    expect(ID);
+
+    expect(SEMICOLON);
+}
+
+void parse_input_stmt(){
+    expect(INPUT);
+    expect(ID);
+
+    expect(SEMICOLON);
+}
+
+void parse_while_stmt(){
+    expect(WHILE);
+    parse_condition();
+
+    t = peek();
+    if(t.token_type == LBRACE){
+        parse_body();
+    } else{
+        syntax_error();
+    }
+
+}
+
+void parse_if_stmt(){
+    expect(IF);
+    parse_condition();
+
+    t = peek();
+    if(t.token_type == LBRACE){
+        parse_body();
+    } else{
+        syntax_error();
+    }
+}
+
+void parse_condition(){
+    //primary
+    t = peek();
+    if(t.token_type == ID || t.token_type == NUM) {
+        parse_primary();
+    } else{
+        syntax_error();
+    }
+    //relop
+    t = peek();
+    if (t.token_type == GREATER || t.token_type == LESS || t.token_type == NOTEQUAL) {
+        parse_relop();
+    } else{
+        syntax_error();
+    }
+    //primary
+    t = peek();
+    if (t.token_type == ID || t.token_type == NUM) {
+        parse_primary();
+    } else{
+        syntax_error();
+    }
+}
+
+void parse_relop(){
+    t = lexer.GetToken();
+    if(t.token_type == GREATER || t.token_type == LESS || t.token_type == NOTEQUAL){
+        //do some shit
+    } else{
+        syntax_error();
+    }
+}
+
+void parse_switch_stmt(){
+    expect(SWITCH);
+    expect(ID);
+    // some shit
+    expect(LBRACE);
+    //case_list
+    t = peek();
+    if(t.token_type == CASE){
+        parse_case_list();
+    } else{
+        syntax_error();
+    }
+    //default_case
+    t = peek();
+    if(t.token_type == DEFAULT){
+        parse_default_case();
+        expect(RBRACE);
+    } else if(t.token_type == RBRACE){
+        t = lexer.GetToken();
+        return;
+    } else{
+        syntax_error();
+    }
+
+}
+
+void parse_for_stmt(){
+    expect(FOR);
+    expect(LPAREN);
+    //assign_stmt
+    t = peek();
+    if(t.token_type == ID) {
+        parse_assign_stmt();
+    } else{
+        syntax_error();
+    }
+    //condition
+    parse_condition();
+    expect(SEMICOLON);
+    t = peek();
+    if(t.token_type == ID) {
+        parse_assign_stmt();
+        expect(RPAREN);
+    } else{
+        syntax_error();
+    }
+    //body
+    t = peek();
+    if (t.token_type == LBRACE) {
+        parse_body();
+    } else{
+        syntax_error();
+    }
+
+
+}
+
+void parse_case_list(){
+    //case
+    t = peek();
+    if(t.token_type == CASE){
+        parse_case();
+    } else{
+        syntax_error();
+    }
+    //case_list
+    t = peek();
+    if(t.token_type == CASE){
+        parse_case_list();
+    }
+
+}
+
+void parse_case(){
+    expect(CASE);
+    expect(NUM);
+    //some shit
+    expect(COLON);
+    //body
+    t = peek();
+    if (t.token_type == LBRACE) {
+        parse_body();
+    } else{
+        syntax_error();
+    }
+}
+
+void parse_default_case(){
+    expect(DEFAULT);
+    expect(COLON);
+    //body
+    t = peek();
+    if (t.token_type == LBRACE) {
+        parse_body();
+    } else{
+        syntax_error();
+    }
+}
+
+void parse_inputs(){
+    parse_num_list();
+}
+
+void parse_num_list(){
+    expect(NUM);
+    //num_list
+    t = peek();
+    if(t.token_type == NUM){
+        parse_num_list();
+    } else if(t.token_type == END_OF_FILE){
+        //??
+    } else{
+        syntax_error();
+    }
 }
