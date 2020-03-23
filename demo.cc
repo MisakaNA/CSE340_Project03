@@ -5,6 +5,9 @@
 #include <ctype.h>
 #include <string.h>
 #include "compiler.h"
+#include "lexer.h"
+LexicalAnalyzer lexer;
+Token t;
 
 struct InstructionNode * parse_generate_intermediate_representation()
 {
@@ -240,4 +243,176 @@ struct InstructionNode * parse_generate_intermediate_representation()
     inputs.push_back(6);
 
     return i1;
+}
+
+void parse_program();
+void parse_var_section();
+void parse_id_list();
+void parse_body();
+void parse_stmt_list();
+void parse_stmt();
+void parse_assign_stmt();
+void parse_expr();
+void parse_primary();
+void parse_op();
+void parse_output_stmt();
+void parse_input_stmt();
+void parse_while_stmt();
+void parse_if_stmt();
+void parse_condition();
+void parse_relop();
+void parse_switch_stmt();
+void parse_for_stmt();
+void parse_case_list();
+void parse_case();
+void parse_default_case();
+void parse_inputs();
+void parse_num_list();
+
+Token peek(){
+    t = lexer.GetToken();
+    lexer.UngetToken(t);
+    return t;
+}
+
+void parse_program(){
+    t = peek();
+    if(t.token_type == ID){
+        parse_var_section();
+
+        t = peek();
+        if(t.token_type == LBRACE){
+            parse_body();
+
+            t = peek();
+            if(t.token_type == NUM){
+                parse_num_list();
+            }
+        }
+    }
+}
+
+void parse_var_section(){
+    t = peek();
+    if(t.token_type == ID){
+        parse_id_list();
+        t = lexer.GetToken();
+        if(t.token_type != SEMICOLON){
+            //syntax_error();
+        }
+    }
+}
+
+void parse_id_list(){
+    t = lexer.GetToken();
+    if(t.token_type == ID){
+
+        t = lexer.GetToken();
+        if(t.token_type == COMMA){
+            parse_id_list();
+        }/*else{
+
+        }*/
+    }
+}
+
+void parse_body(){
+    t = lexer.GetToken();
+    if(t.token_type == LBRACE){
+        parse_stmt_list();
+
+        t = lexer.GetToken();
+        if(t.token_type != RBRACE){
+            //syntax_error()
+        }
+    }
+}
+
+void parse_stmt_list(){
+    parse_stmt();
+
+    t = peek();
+    if(t.token_type == ID || t.token_type == WHILE || t.token_type == IF || t.token_type == SWITCH
+       || t.token_type == FOR || t.token_type == OUTPUT || t.token_type == INPUT){
+        parse_stmt();
+    }
+}
+
+void parse_stmt(){
+    t = peek();
+    switch(t.token_type){
+        case ID:
+            parse_assign_stmt();
+            break;
+        case WHILE:
+            parse_while_stmt();
+            break;
+        case IF:
+            parse_if_stmt();
+            break;
+        case SWITCH:
+            parse_switch_stmt();
+            break;
+        case FOR:
+            parse_for_stmt();
+            break;
+        case OUTPUT:
+            parse_output_stmt();
+            break;
+        case INPUT:
+            parse_input_stmt();
+            break;
+        default:
+            //syntax_error
+            break;
+    }
+}
+
+void parse_assign_stmt(){
+    t = lexer.GetToken();
+    if(t.token_type == ID){
+
+        t = lexer.GetToken();
+        if(t.token_type == EQUAL){
+            Token t1 = lexer.GetToken();
+            Token t2 = peek();
+            lexer.UngetToken(t1);
+            if(t1.token_type == ID || t1.token_type == NUM){
+                if(t2.token_type == PLUS || t2.token_type == MINUS || t2.token_type == MULT || t2.token_type == DIV){
+                    parse_expr();
+                }else{
+                    parse_primary();
+                }
+            }
+
+            t = lexer.GetToken();
+            if(t.token_type != SEMICOLON){
+                //syntax_error
+            }
+        }
+    }
+}
+
+void parse_expr(){
+    //t = peek();
+    //if(t.token_type == ID || t.token_type == NUM) {
+        parse_primary();
+    //}
+
+    //t = peek();
+    //if(t.token_type == PLUS || t.token_type == MINUS || t.token_type == MULT || t.token_type == DIV) {
+        parse_op();
+        parse_primary();
+    //}
+}
+
+void parse_primary(){
+    t = lexer.GetToken();
+    //do some shit
+
+}
+
+void parse_op(){
+    t = lexer.GetToken();
+    //do some shit
 }
