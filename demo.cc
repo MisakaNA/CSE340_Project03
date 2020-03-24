@@ -5,30 +5,35 @@
 #include <ctype.h>
 #include <string.h>
 #include <iostream>
+#include <algorithm>
+#include <map>
 #include "compiler.h"
 #include "lexer.h"
+using namespace std;
 LexicalAnalyzer lexer;
 Token t;
-using namespace std;
+vector<int> inputNum;
+map<string, int> inputVar;
+struct InstructionNode* programBody;
 
 void parse_program();
 void parse_var_section();
 void parse_id_list();
-void parse_body();
-void parse_stmt_list();
-void parse_stmt();
-void parse_assign_stmt();
-void parse_expr();
-void parse_primary();
-void parse_op();
-void parse_output_stmt();
-void parse_input_stmt();
-void parse_while_stmt();
-void parse_if_stmt();
-void parse_condition();
-void parse_relop();
-void parse_switch_stmt();
-void parse_for_stmt();
+InstructionNode * parse_body();
+InstructionNode * parse_stmt_list();
+InstructionNode * parse_stmt();
+InstructionNode * parse_assign_stmt();
+InstructionNode * parse_expr();
+int parse_primary();
+TokenType parse_op();
+InstructionNode * parse_output_stmt();
+InstructionNode * parse_input_stmt();
+InstructionNode * parse_while_stmt();
+InstructionNode * parse_if_stmt();
+InstructionNode * parse_condition();
+TokenType parse_relop();
+InstructionNode * parse_switch_stmt();
+InstructionNode * parse_for_stmt();
 void parse_case_list();
 void parse_case();
 void parse_default_case();
@@ -38,48 +43,48 @@ void parse_num_list();
 struct InstructionNode * parse_generate_intermediate_representation()
 {
     parse_program();
+    return programBody;
+    /* Sample program for demonstration purpose only
+     Replace the following with a parser that reads the program from stdin &
+     creates appropriate data structures to be executed by execute_program()
+     This is the imaginary input for the following construction:
 
-    // Sample program for demonstration purpose only
-    // Replace the following with a parser that reads the program from stdin &
-    // creates appropriate data structures to be executed by execute_program()
-    // This is the imaginary input for the following construction:
+     a, b, c, d;
+     {
+         input a;
+         input b;
+         c = 10;
 
-    // a, b, c, d;
-    // {
-    //     input a;
-    //     input b;
-    //     c = 10;
-    //
-    //     IF c <> a
-    //     {
-    //         output b;
-    //     }
-    //
-    //     IF c > 1
-    //     {
-    //         a = b + 900;
-    //         input d;
-    //         IF a > 10
-    //         {
-    //             output d;
-    //         }
-    //     }
-    //
-    //     d = 0;
-    //     WHILE d < 4
-    //     {
-    //         c = a + d;
-    //         IF d > 1
-    //         {
-    //             output d;
-    //         }
-    //         d = d + 1;
-    //     }
-    // }
-    // 1 2 3 4 5 6
+         IF c <> a
+         {
+             output b;
+         }
 
-    // Assigning location for variable "a"
-    int address_a = next_available;
+         IF c > 1
+         {
+             a = b + 900;
+             input d;
+             IF a > 10
+             {
+                 output d;
+             }
+         }
+
+         d = 0;
+         WHILE d < 4
+         {
+             c = a + d;
+             IF d > 1
+             {
+                 output d;
+             }
+             d = d + 1;
+         }
+     }
+     1 2 3 4 5 6
+
+     Assigning location for variable "a"*/
+    /*int address_a = next_available;
     mem[next_available] = 0;
     next_available++;
 
@@ -270,7 +275,7 @@ struct InstructionNode * parse_generate_intermediate_representation()
     inputs.push_back(5);
     inputs.push_back(6);
 
-    return i1;
+    return i1;*/
 }
 
 Token peek(){
@@ -279,14 +284,12 @@ Token peek(){
     return t;
 }
 
-void syntax_error()
-{
+void syntax_error(){
     cout << "SYNTAX ERROR !!!\n";
     exit(1);
 }
 
-Token expect(TokenType expected_type)
-{
+Token expect(TokenType expected_type){
     Token t = lexer.GetToken();
     if (t.token_type != expected_type)
         syntax_error();
@@ -298,13 +301,13 @@ void parse_program(){
     t = peek();
     if(t.token_type == ID) {
         parse_var_section();
-    } else {
+    } else{
         syntax_error();
     }
     //body
     t = peek();
     if(t.token_type == LBRACE){
-        parse_body();
+        programBody = parse_body();
     } else{
         syntax_error();
     }
@@ -324,7 +327,12 @@ void parse_var_section(){
 }
 
 void parse_id_list(){
-    expect(ID);
+    t = expect(ID);
+    //store variables to the map at the first line
+    inputVar[t.lexeme] = next_available;
+    //initial the var to 0 in mem and match with the index
+    mem[next_available++] = 0;
+
     t = lexer.GetToken();
     if(t.token_type == COMMA){
         parse_id_list();
@@ -333,174 +341,286 @@ void parse_id_list(){
     }
 }
 
-void parse_body(){
+struct InstructionNode* parse_body(){
+    struct InstructionNode* instl = nullptr;
     expect(LBRACE);
     //stmt_list
-    parse_stmt_list();
-
+    instl = parse_stmt_list();
     expect(RBRACE);
-
+    return instl;
 }
 
-void parse_stmt_list(){
-    parse_stmt();
+struct InstructionNode* parse_stmt_list(){
+    struct InstructionNode* inst = nullptr;
+    struct InstructionNode* instl = nullptr;
+    inst = parse_stmt();
 
     t = peek();
     if(t.token_type == ID || t.token_type == WHILE || t.token_type == IF || t.token_type == SWITCH
        || t.token_type == FOR || t.token_type == OUTPUT || t.token_type == INPUT){
-        parse_stmt_list();
-    }
+        instl = parse_stmt_list();
+        inst->next = instl;
+    }/*else{
+        //set the tail of stmt_list to nullptr
+        inst->next = nullptr;
+    }*/
+    return inst;
 }
 
-void parse_stmt(){
+struct InstructionNode* parse_stmt(){
+    struct InstructionNode *inst = nullptr;
     t = peek();
     switch(t.token_type){
         case ID:
-            parse_assign_stmt();
+            inst = parse_assign_stmt();
             break;
         case WHILE:
-            parse_while_stmt();
+            inst = parse_while_stmt();
             break;
         case IF:
-            parse_if_stmt();
+            inst = parse_if_stmt();
             break;
         case SWITCH:
-            parse_switch_stmt();
+            inst = parse_switch_stmt();
             break;
         case FOR:
-            parse_for_stmt();
+            inst = parse_for_stmt();
             break;
         case OUTPUT:
-            parse_output_stmt();
+            inst = parse_output_stmt();
             break;
         case INPUT:
-            parse_input_stmt();
+            inst = parse_input_stmt();
             break;
         default:
             syntax_error();
     }
+    return inst;
 }
 
-void parse_assign_stmt(){
-    expect(ID);
-    expect(EQUAL);
+struct InstructionNode* parse_assign_stmt(){
+    auto* assignInst = new InstructionNode;
+    assignInst->type = ASSIGN;
+    //left hand side
+    t = expect(ID);
+    assignInst->assign_inst.left_hand_side_index = inputVar[t.lexeme];
 
+    expect(EQUAL);
     Token t1 = lexer.GetToken();
     Token t2 = peek();
     lexer.UngetToken(t1);
-    if (t1.token_type == ID || t1.token_type == NUM) {
+    if (t1.token_type == ID || t1.token_type == NUM){
         if (t2.token_type == PLUS || t2.token_type == MINUS || t2.token_type == MULT || t2.token_type == DIV) {
             //expr
-            parse_expr();
-        } else {
+            struct InstructionNode* temp = parse_expr();
+            assignInst->assign_inst.operand1_index = temp ->assign_inst.operand1_index;
+            assignInst->assign_inst.op = temp->assign_inst.op;
+            assignInst->assign_inst.operand2_index = temp->assign_inst.operand2_index;
+        } else if(t2.token_type == SEMICOLON){
             //primary
-            parse_primary();
+            assignInst->assign_inst.op = OPERATOR_NONE;
+            assignInst->assign_inst.operand1_index = parse_primary();
+        } else{
+            syntax_error();
         }
     } else{
         syntax_error();
     }
-
     expect(SEMICOLON);
+
+    return assignInst;
 }
 
-void parse_expr(){
-    parse_primary();
-    parse_op();
-    parse_primary(); //¿
+struct InstructionNode* parse_expr(){
+    auto *getInfo = new InstructionNode;
+    getInfo->assign_inst.operand1_index = parse_primary();
+
+    switch(parse_op()){
+        case PLUS:
+            getInfo->assign_inst.op = OPERATOR_PLUS;
+            break;
+        case MINUS:
+            getInfo->assign_inst.op = OPERATOR_MINUS;
+            break;
+        case MULT:
+            getInfo->assign_inst.op = OPERATOR_MULT;
+            break;
+        case DIV:
+            getInfo->assign_inst.op = OPERATOR_DIV;
+            break;
+        default:
+            break;
+    }
+    getInfo->assign_inst.operand2_index = parse_primary();
+
+    return getInfo;
 }
 
-void parse_primary(){
+int parse_primary(){
+    int index = -1;
     t = lexer.GetToken();
     if(t.token_type == ID || t.token_type == NUM){
-        //do some shit
+        if(t.token_type == ID){
+            index = inputVar[t.lexeme];
+        } else{
+            index = next_available;
+            mem[next_available++] = stoi(t.lexeme);
+        }
     } else{
         syntax_error();
     }
+    return index;
 }
 
-void parse_op(){
+TokenType parse_op(){
     t = lexer.GetToken();
     if(t.token_type == PLUS || t.token_type == MINUS || t.token_type == MULT || t.token_type == DIV){
-        //do some shit
+        return t.token_type;
     } else{
         syntax_error();
     }
 }
 
-void parse_output_stmt(){
+InstructionNode* parse_output_stmt(){
+    auto *outputInst = new InstructionNode;
     expect(OUTPUT);
-    expect(ID);
-
+    outputInst->type = OUT;
+    t = expect(ID);
+    outputInst->output_inst.var_index = inputVar[t.lexeme];
     expect(SEMICOLON);
+    return outputInst;
 }
 
-void parse_input_stmt(){
+InstructionNode* parse_input_stmt(){
+    auto *inputInst = new InstructionNode;
     expect(INPUT);
-    expect(ID);
-
+    inputInst->type = IN;
+    t = expect(ID);
+    inputInst->input_inst.var_index = inputVar[t.lexeme];
     expect(SEMICOLON);
+    return inputInst;
 }
 
-void parse_while_stmt(){
+struct InstructionNode* parse_while_stmt(){
+    auto *whileInst = new InstructionNode;
     expect(WHILE);
-    parse_condition();
+    whileInst->type = CJMP;
+    struct InstructionNode* temp = parse_condition();
+    whileInst->cjmp_inst.operand1_index = temp->cjmp_inst.operand1_index;
+    whileInst->cjmp_inst.condition_op = temp->cjmp_inst.condition_op;
+    whileInst->cjmp_inst.operand2_index = temp->cjmp_inst.operand2_index;
 
     t = peek();
     if(t.token_type == LBRACE){
-        parse_body();
+        whileInst->next = parse_body();
     } else{
         syntax_error();
     }
 
+    auto* jmp = new InstructionNode;
+    jmp->type = JMP;
+    jmp->jmp_inst.target = whileInst;
+
+    auto* noop = new InstructionNode;
+    noop->type = NOOP;
+    noop->next = nullptr;
+
+    jmp->next = noop;
+
+    struct InstructionNode* getLast = whileInst;
+    while(getLast->next != nullptr){
+        getLast = getLast->next;
+    }
+    getLast->next = jmp;
+
+    whileInst->cjmp_inst.target = noop;
+
+    return whileInst;
 }
 
-void parse_if_stmt(){
+struct InstructionNode* parse_if_stmt(){
+    auto *ifInst = new InstructionNode;
     expect(IF);
-    parse_condition();
+
+    ifInst->type = CJMP;
+    struct InstructionNode* temp = parse_condition();
+    ifInst->cjmp_inst.operand1_index = temp->cjmp_inst.operand1_index;
+    ifInst->cjmp_inst.condition_op = temp->cjmp_inst.condition_op;
+    ifInst->cjmp_inst.operand2_index = temp->cjmp_inst.operand2_index;
 
     t = peek();
     if(t.token_type == LBRACE){
-        parse_body();
+        ifInst->next = parse_body();
     } else{
         syntax_error();
     }
+
+    auto* noop = new InstructionNode;
+    noop->type = NOOP;
+    noop->next = nullptr;
+
+    struct InstructionNode* getLast = ifInst;
+    while(getLast->next != nullptr){
+        getLast = getLast->next;
+    }
+    getLast->next = noop;
+
+    ifInst->cjmp_inst.target = noop;
+
+    return ifInst;
 }
 
-void parse_condition(){
+struct InstructionNode* parse_condition(){
+    auto* getCondInfo = new InstructionNode;
     //primary
     t = peek();
-    if(t.token_type == ID || t.token_type == NUM) {
-        parse_primary();
+    if(t.token_type == ID || t.token_type == NUM){
+        getCondInfo->cjmp_inst.operand1_index = parse_primary();
     } else{
         syntax_error();
     }
     //relop
     t = peek();
-    if (t.token_type == GREATER || t.token_type == LESS || t.token_type == NOTEQUAL) {
-        parse_relop();
+    if (t.token_type == GREATER || t.token_type == LESS || t.token_type == NOTEQUAL){
+        switch(parse_relop()){
+            case GREATER:
+                getCondInfo->cjmp_inst.condition_op = CONDITION_GREATER;
+                break;
+            case LESS:
+                getCondInfo->cjmp_inst.condition_op = CONDITION_LESS;
+                break;
+            case NOTEQUAL:
+                getCondInfo->cjmp_inst.condition_op = CONDITION_NOTEQUAL;
+                break;
+            default:
+                break;
+        }
     } else{
         syntax_error();
     }
     //primary
     t = peek();
     if (t.token_type == ID || t.token_type == NUM) {
-        parse_primary();
+        getCondInfo->cjmp_inst.operand2_index = parse_primary();
     } else{
         syntax_error();
     }
+    return getCondInfo;
 }
 
-void parse_relop(){
+TokenType parse_relop(){
     t = lexer.GetToken();
     if(t.token_type == GREATER || t.token_type == LESS || t.token_type == NOTEQUAL){
-        //do some shit
+        return t.token_type;
     } else{
         syntax_error();
     }
 }
 
-void parse_switch_stmt(){
+InstructionNode * parse_switch_stmt(){
+    auto* switchInst = new InstructionNode;
     expect(SWITCH);
+    //switchInst->type = JMP;
     expect(ID);
     // some shit
     expect(LBRACE);
@@ -518,42 +638,79 @@ void parse_switch_stmt(){
         expect(RBRACE);
     } else if(t.token_type == RBRACE){
         t = lexer.GetToken();
-        return;
+        return switchInst;
     } else{
         syntax_error();
     }
 
 }
 
-void parse_for_stmt(){
+struct InstructionNode * parse_for_stmt(){
+    auto* forInst = new InstructionNode;
+    auto* assignStmt = new InstructionNode;
     expect(FOR);
     expect(LPAREN);
+
     //assign_stmt
     t = peek();
-    if(t.token_type == ID) {
-        parse_assign_stmt();
+    if(t.token_type == ID){
+        forInst = parse_assign_stmt();
     } else{
         syntax_error();
     }
+
+    auto* tempWhileInst = new InstructionNode;
+    tempWhileInst->type = CJMP;
     //condition
-    parse_condition();
+    struct InstructionNode* temp = parse_condition();
+    tempWhileInst->cjmp_inst.operand1_index = temp->cjmp_inst.operand1_index;
+    tempWhileInst->cjmp_inst.condition_op = temp->cjmp_inst.condition_op;
+    tempWhileInst->cjmp_inst.operand2_index = temp->cjmp_inst.operand2_index;
+
     expect(SEMICOLON);
     t = peek();
-    if(t.token_type == ID) {
-        parse_assign_stmt();
+    if(t.token_type == ID){
+        assignStmt = parse_assign_stmt();
+        assignStmt->next = nullptr;
         expect(RPAREN);
     } else{
         syntax_error();
     }
     //body
     t = peek();
-    if (t.token_type == LBRACE) {
-        parse_body();
+    if (t.token_type == LBRACE){
+        tempWhileInst->next = parse_body();
     } else{
         syntax_error();
     }
 
+    //add the second stmt like a = a + 1 (a++)
+    auto* addStmt = tempWhileInst->next;
+    while(addStmt->next != nullptr){
+        addStmt = addStmt->next;
+    }
+    addStmt->next = assignStmt;
 
+    auto* jmp = new InstructionNode;
+    jmp->type = JMP;
+    jmp->jmp_inst.target = tempWhileInst;
+
+    auto* noop = new InstructionNode;
+    noop->type = NOOP;
+    noop->next = nullptr;
+
+    jmp->next = noop;
+
+    struct InstructionNode* getLast = tempWhileInst;
+    while(getLast->next != nullptr){
+        getLast = getLast->next;
+    }
+    getLast->next = jmp;
+
+    tempWhileInst->cjmp_inst.target = noop;
+
+    forInst->next = tempWhileInst;
+    return forInst;
 }
 
 void parse_case_list(){
@@ -579,7 +736,7 @@ void parse_case(){
     expect(COLON);
     //body
     t = peek();
-    if (t.token_type == LBRACE) {
+    if (t.token_type == LBRACE){
         parse_body();
     } else{
         syntax_error();
@@ -591,7 +748,7 @@ void parse_default_case(){
     expect(COLON);
     //body
     t = peek();
-    if (t.token_type == LBRACE) {
+    if (t.token_type == LBRACE){
         parse_body();
     } else{
         syntax_error();
@@ -603,7 +760,9 @@ void parse_inputs(){
 }
 
 void parse_num_list(){
-    expect(NUM);
+    t = expect(NUM);
+    //append input number
+    inputs.push_back(stoi(t.lexeme));
     //num_list
     t = peek();
     if(t.token_type == NUM){
@@ -611,6 +770,6 @@ void parse_num_list(){
     } else if(t.token_type == END_OF_FILE){
         //??
     } else{
-        syntax_error();
+        //syntax_error();
     }
 }
