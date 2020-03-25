@@ -144,7 +144,6 @@ struct InstructionNode* parse_stmt_list(){
 }
 
 struct InstructionNode* parse_stmt(){
-
     struct InstructionNode* inst = nullptr;
     struct InstructionNode* getLast;
     t = peek();
@@ -160,13 +159,15 @@ struct InstructionNode* parse_stmt(){
             break;
         case SWITCH:
             inst = parse_switch_stmt();
+
+            //set a end node for the switch statement
+            //every case will jump to this at the end
+            //it follows the DEFAULT naturally
             getLast = inst;
             while(getLast->next != nullptr){
                 getLast = getLast->next;
             }
-
             getLast->next = covid_19;
-
             break;
         case FOR:
             inst = parse_for_stmt();
