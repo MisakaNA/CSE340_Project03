@@ -14,7 +14,7 @@ LexicalAnalyzer lexer;
 Token t;
 struct InstructionNode* covid_19 = new InstructionNode;
 map<string, int> inputVar;
-struct InstructionNode* programBody;
+struct InstructionNode* misaka;
 int switchOp1 = -1;
 void parse_program();
 void parse_var_section();
@@ -40,15 +40,6 @@ InstructionNode * parse_default_case();
 void parse_inputs();
 void parse_num_list();
 
-
-struct InstructionNode * parse_generate_intermediate_representation()
-{
-    covid_19->type = NOOP;
-    covid_19->next = nullptr;
-    parse_program();
-    return programBody;
-}
-
 Token peek(){
     Token t = lexer.GetToken();
     lexer.UngetToken(t);
@@ -67,6 +58,14 @@ Token expect(TokenType expected_type){
     return t;
 }
 
+struct InstructionNode * parse_generate_intermediate_representation()
+{
+    covid_19->type = NOOP;
+    covid_19->next = nullptr;
+    parse_program();
+    return misaka;
+}
+
 void parse_program(){
     //var_section
     t = peek();
@@ -78,7 +77,7 @@ void parse_program(){
     //body
     t = peek();
     if(t.token_type == LBRACE){
-        programBody = parse_body();
+        misaka = parse_body();
     } else{
         syntax_error();
     }
@@ -201,10 +200,10 @@ struct InstructionNode* parse_assign_stmt(){
     if (t1.token_type == ID || t1.token_type == NUM){
         if (t2.token_type == PLUS || t2.token_type == MINUS || t2.token_type == MULT || t2.token_type == DIV) {
             //expr
-            struct InstructionNode* temp = parse_expr();
-            assignInst->assign_inst.operand1_index = temp ->assign_inst.operand1_index;
-            assignInst->assign_inst.op = temp->assign_inst.op;
-            assignInst->assign_inst.operand2_index = temp->assign_inst.operand2_index;
+            struct InstructionNode* kotori = parse_expr();
+            assignInst->assign_inst.operand1_index = kotori ->assign_inst.operand1_index;
+            assignInst->assign_inst.op = kotori->assign_inst.op;
+            assignInst->assign_inst.operand2_index = kotori->assign_inst.operand2_index;
         } else if(t2.token_type == SEMICOLON){
             //primary
             assignInst->assign_inst.op = OPERATOR_NONE;
@@ -271,7 +270,7 @@ TokenType parse_op(){
     }
 }
 
-InstructionNode* parse_output_stmt(){
+struct InstructionNode* parse_output_stmt(){
     auto *outputInst = new InstructionNode;
     expect(OUTPUT);
     outputInst->type = OUT;
@@ -282,7 +281,7 @@ InstructionNode* parse_output_stmt(){
     return outputInst;
 }
 
-InstructionNode* parse_input_stmt(){
+struct InstructionNode* parse_input_stmt(){
     auto *inputInst = new InstructionNode;
     expect(INPUT);
     inputInst->type = IN;
@@ -297,10 +296,10 @@ struct InstructionNode* parse_while_stmt(){
     auto *whileInst = new InstructionNode;
     expect(WHILE);
     whileInst->type = CJMP;
-    struct InstructionNode* temp = parse_condition();
-    whileInst->cjmp_inst.operand1_index = temp->cjmp_inst.operand1_index;
-    whileInst->cjmp_inst.condition_op = temp->cjmp_inst.condition_op;
-    whileInst->cjmp_inst.operand2_index = temp->cjmp_inst.operand2_index;
+    struct InstructionNode* nagisa = parse_condition();
+    whileInst->cjmp_inst.operand1_index = nagisa->cjmp_inst.operand1_index;
+    whileInst->cjmp_inst.condition_op = nagisa->cjmp_inst.condition_op;
+    whileInst->cjmp_inst.operand2_index = nagisa->cjmp_inst.operand2_index;
 
     t = peek();
     if(t.token_type == LBRACE){
@@ -461,10 +460,10 @@ struct InstructionNode* parse_for_stmt(){
     auto* tempWhileInst = new InstructionNode;
     tempWhileInst->type = CJMP;
     //condition
-    struct InstructionNode* temp = parse_condition();
-    tempWhileInst->cjmp_inst.operand1_index = temp->cjmp_inst.operand1_index;
-    tempWhileInst->cjmp_inst.condition_op = temp->cjmp_inst.condition_op;
-    tempWhileInst->cjmp_inst.operand2_index = temp->cjmp_inst.operand2_index;
+    struct InstructionNode* sagiri = parse_condition();
+    tempWhileInst->cjmp_inst.operand1_index = sagiri->cjmp_inst.operand1_index;
+    tempWhileInst->cjmp_inst.condition_op = sagiri->cjmp_inst.condition_op;
+    tempWhileInst->cjmp_inst.operand2_index = sagiri->cjmp_inst.operand2_index;
 
     expect(SEMICOLON);
     t = peek();
@@ -610,9 +609,5 @@ void parse_num_list(){
     t = peek();
     if(t.token_type == NUM){
         parse_num_list();
-    } else if(t.token_type == END_OF_FILE){
-        //??
-    } else{
-        //syntax_error();
     }
 }
