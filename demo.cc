@@ -12,10 +12,10 @@
 using namespace std;
 LexicalAnalyzer lexer;
 Token t;
-struct InstructionNode* covid_19 = new InstructionNode;
+
 map<string, int> inputVar;
 struct InstructionNode* misaka;
-int switchOp1 = -1;
+//int switchOp1 = -1;
 void parse_program();
 void parse_var_section();
 void parse_id_list();
@@ -32,10 +32,10 @@ InstructionNode * parse_while_stmt();
 InstructionNode * parse_if_stmt();
 InstructionNode * parse_condition();
 TokenType parse_relop();
-InstructionNode * parse_switch_stmt();
+InstructionNode * parse_switch_stmt(struct InstructionNode* covid_19);
 InstructionNode * parse_for_stmt();
-InstructionNode * parse_case_list();
-InstructionNode * parse_case();
+InstructionNode * parse_case_list(int op, struct InstructionNode* covid_19);
+InstructionNode * parse_case(int op);
 InstructionNode * parse_default_case();
 void parse_inputs();
 void parse_num_list();
@@ -60,8 +60,7 @@ Token expect(TokenType expected_type){
 
 struct InstructionNode * parse_generate_intermediate_representation()
 {
-    covid_19->type = NOOP;
-    covid_19->next = nullptr;
+
     parse_program();
     return misaka;
 }
@@ -144,6 +143,9 @@ struct InstructionNode* parse_stmt_list(){
 
 struct InstructionNode* parse_stmt(){
     struct InstructionNode* inst = nullptr;
+    struct InstructionNode* covid_19 = new InstructionNode;
+    covid_19->type = NOOP;
+    covid_19->next = nullptr;
     struct InstructionNode* getLast;
     t = peek();
     switch(t.token_type){
@@ -157,8 +159,7 @@ struct InstructionNode* parse_stmt(){
             inst = parse_if_stmt();
             break;
         case SWITCH:
-            inst = parse_switch_stmt();
-
+            inst = parse_switch_stmt(covid_19);
             //set a end node for the switch statement
             //every case will jump to this at the end
             //it follows the DEFAULT naturally
@@ -406,17 +407,17 @@ TokenType parse_relop(){
     }
 }
 
-struct InstructionNode * parse_switch_stmt(){
+struct InstructionNode* parse_switch_stmt(struct InstructionNode* covid_19){
     auto* switchInst = new InstructionNode;
     expect(SWITCH);
 
     t = expect(ID);
-    switchOp1 = inputVar[t.lexeme];
+    int switchOp1 = inputVar[t.lexeme];
     expect(LBRACE);
     //case_list
     t = peek();
     if(t.token_type == CASE){
-        switchInst = parse_case_list();
+        switchInst = parse_case_list(switchOp1, covid_19);
 
 
     } else{
@@ -511,13 +512,13 @@ struct InstructionNode* parse_for_stmt(){
     return forInst;
 }
 
-struct InstructionNode* parse_case_list(){
+struct InstructionNode* parse_case_list(int op, struct InstructionNode* covid_19){
     auto* caseNode = new InstructionNode;
     struct InstructionNode* caseList = nullptr;
     //case
     t = peek();
     if(t.token_type == CASE){
-        caseNode = parse_case();
+        caseNode = parse_case(op);
 
         auto* jmp = new InstructionNode;
         jmp->type = JMP;
@@ -534,7 +535,7 @@ struct InstructionNode* parse_case_list(){
     //case_list
     t = peek();
     if(t.token_type == CASE){
-        caseList = parse_case_list();
+        caseList = parse_case_list(op, covid_19);
 
         //add caseList to the tail of caseNode
         struct InstructionNode* getLast = caseNode;
@@ -546,11 +547,11 @@ struct InstructionNode* parse_case_list(){
     return caseNode;
 }
 
-struct InstructionNode* parse_case(){
+struct InstructionNode* parse_case(int op){
     auto* caseInst = new InstructionNode;
     expect(CASE);
     caseInst->type = CJMP;
-    caseInst->cjmp_inst.operand1_index = switchOp1;
+    caseInst->cjmp_inst.operand1_index = op;
     caseInst->cjmp_inst.condition_op = CONDITION_NOTEQUAL;
     t = expect(NUM);
 
